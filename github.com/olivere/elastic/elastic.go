@@ -40,12 +40,12 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 	}
 
-	hhc := ot.HTTPHeadersCarrier(r.Header)
-	err := ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, hhc)
+	err := ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
 	if err != nil {
+		span.SetTag("error", true)
 		return nil, err
 	}
-	span.SetTag("http.headers", r.Header)
+
 	// execute standard roundtrip
 	resp, err := t.Transport.RoundTrip(r)
 	if err != nil {
