@@ -1,4 +1,4 @@
-package elastictrace
+package otelastic
 
 import (
 	"bytes"
