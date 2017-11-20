@@ -33,19 +33,16 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 		span := ot.StartSpan("redis")
 		defer span.Finish()
 		span.SetTag("redis.command", cmdName)
-		tc.setSpanTags(span)
+		span.SetTag("redis.connection", tc.ConnInfo)
+		span.SetTag("redis.db", tc.Db)
 		return tc.Conn.Do(cmdName, args...)
 	}
 	span, _ := ot.StartSpanFromContext(args[0].(context.Context), "redis")
 	defer span.Finish()
 	span.SetTag("redis.command", cmdName)
-	tc.setSpanTags(span)
+	span.SetTag("redis.connection", tc.ConnInfo)
+	span.SetTag("redis.db", tc.Db)
 	return tc.Conn.Do(cmdName, args...)
-}
-
-func (tc *TracedConn) setSpanTags(s ot.Span) {
-	s.SetTag("redis.connection", tc.ConnInfo)
-	s.SetTag("redis.db", tc.Db)
 }
 
 func (tc *TracedConn) Send(cmdName string, args ...interface{}) error {
