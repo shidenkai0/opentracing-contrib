@@ -3,7 +3,6 @@ package otredigo
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"strconv"
 
@@ -13,7 +12,9 @@ import (
 
 // TracedConn is a traced implementation of github.com/garyburd/redigo/redis.Conn
 type TracedConn struct {
-	Conn redis.Conn
+	ConnInfo string // host:port
+	Db       int    // redis db identifier
+	Conn     redis.Conn
 }
 
 func (tc *TracedConn) Close() error {
@@ -29,16 +30,22 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 		return nil, errors.New("otredigo: called redis.Conn.Do with no arguments")
 	}
 	if _, ok := args[0].(context.Context); !ok {
-		span := ot.StartSpan(fmt.Sprintf("redis.%s", cmdName))
+		span := ot.StartSpan("redis")
 		defer span.Finish()
-		span.SetTag(fmt.Sprintf("redis.%s.Args", cmdName), args)
+		span.SetTag("redis.command", cmdName)
+		tc.setSpanTags(span)
 		return tc.Conn.Do(cmdName, args...)
 	}
-	span, _ := ot.StartSpanFromContext(args[0].(context.Context), fmt.Sprintf("redis.%s", cmdName))
+	span, _ := ot.StartSpanFromContext(args[0].(context.Context), "redis")
 	defer span.Finish()
-	span.SetTag(fmt.Sprintf("redis.%s.Args", cmdName), args)
-
+	span.SetTag("redis.command", cmdName)
+	tc.setSpanTags(span)
 	return tc.Conn.Do(cmdName, args...)
+}
+
+func (tc *TracedConn) setSpanTags(s ot.Span) {
+	s.SetTag("redis.connection", tc.ConnInfo)
+	s.SetTag("redis.db", tc.Db)
 }
 
 func (tc *TracedConn) Send(cmdName string, args ...interface{}) error {
@@ -65,10 +72,11 @@ func ConnectTo(redisURL string) (c redis.Conn, err error) {
 		pw, _ := URL.User.Password()
 		dialOpts = append(dialOpts, redis.DialPassword(pw))
 	}
-
+	var db int
 	if len(URL.Path) > 1 {
 		db, _ := strconv.Atoi(URL.Path[1:])
 		dialOpts = append(dialOpts, redis.DialDatabase(db))
 	}
-	return redis.Dial("tcp", URL.Host, dialOpts...)
+	c, err = redis.Dial("tcp", URL.Host, dialOpts...)
+	return &TracedConn{Conn: c, Db: db, ConnInfo: URL.Host}, err
 }
