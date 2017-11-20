@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/opentracing/opentracing-go/ext"
+
 	ot "github.com/opentracing/opentracing-go"
 )
 
@@ -26,6 +28,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	r = r.WithContext(ctx)
 	defer span.Finish()
 
+	span.SetTag(string(ext.DBType), "elastic")
 	span.SetTag("elastic.method", r.Method)
 	span.SetTag("elastic.url", r.URL.Path)
 	span.SetTag("elastic.params", r.URL.Query().Encode())
@@ -36,7 +39,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		span.SetTag("elastic.body", string(buf))
+		span.SetTag(string(ext.DBStatement), string(buf))
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 	}
 
