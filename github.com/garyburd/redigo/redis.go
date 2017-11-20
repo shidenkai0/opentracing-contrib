@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
 
 	"github.com/garyburd/redigo/redis"
 	ot "github.com/opentracing/opentracing-go"
@@ -49,4 +51,24 @@ func (tc *TracedConn) Flush() error {
 
 func (tc *TracedConn) Receive() (reply interface{}, err error) {
 	return tc.Conn.Receive()
+}
+
+func ConnectTo(redisURL string) (c redis.Conn, err error) {
+	URL, err := url.Parse(redisURL)
+	if err != nil {
+		return
+	}
+
+	dialOpts := make([]redis.DialOption, 0)
+
+	if URL.User != nil {
+		pw, _ := URL.User.Password()
+		dialOpts = append(dialOpts, redis.DialPassword(pw))
+	}
+
+	if len(URL.Path) > 1 {
+		db, _ := strconv.Atoi(URL.Path[1:])
+		dialOpts = append(dialOpts, redis.DialDatabase(db))
+	}
+	return redis.Dial("tcp", URL.Host, dialOpts...)
 }
