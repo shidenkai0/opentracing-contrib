@@ -13,13 +13,8 @@ import (
 func ServerMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// extract SpanContext from http headers carrier
-		sc, err := ot.GlobalTracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
-		var span ot.Span
-		if err == nil {
-			span = ot.GlobalTracer().StartSpan(getOperationName(r.Method, r.URL.String()), ot.ChildOf(sc))
-		} else { // if we couldn't extract a SpanContext from the headers, proceed with serving the request using a new parent span
-			span = ot.StartSpan(getOperationName(r.Method, r.URL.String()))
-		}
+		sc, _ := ot.GlobalTracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
+		span := ot.StartSpan(getOperationName(r.Method, r.URL.Path), ext.RPCServerOption(sc))
 		defer span.Finish()
 		ctx := ot.ContextWithSpan(r.Context(), span)
 		// Use negroni.Responsewriter, providing facilities for getting response information
