@@ -71,7 +71,7 @@ func ConnectTo(redisURL string) (c redis.Conn, err error) {
 	}
 	var db int
 	if len(URL.Path) > 1 {
-		db, _ := strconv.Atoi(URL.Path[1:])
+		db, _ = strconv.Atoi(URL.Path[1:])
 		dialOpts = append(dialOpts, redis.DialDatabase(db))
 	}
 	c, err = redis.Dial("tcp", URL.Host, dialOpts...)
