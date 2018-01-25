@@ -29,7 +29,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	defer span.Finish()
 
 	span.SetTag(string(ext.HTTPMethod), r.Method)
-	span.SetTag(string(ext.HTTPUrl), r.URL)
+	span.SetTag(string(ext.HTTPUrl), r.URL.String())
 
 	contentLength, _ := strconv.Atoi(r.Header.Get("Content-Length"))
 	if r.Body != nil && contentLength < MaxContentLength {
