@@ -3,11 +3,13 @@ package otredigo
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/url"
 	"strconv"
 
 	"github.com/garyburd/redigo/redis"
 	ot "github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 )
 
 // TracedConn is a traced implementation of github.com/garyburd/redigo/redis.Conn
@@ -32,16 +34,16 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 	if _, ok := args[0].(context.Context); !ok {
 		span := ot.StartSpan("redis")
 		defer span.Finish()
-		span.SetTag("redis.command", cmdName)
-		span.SetTag("redis.connection", tc.ConnInfo)
-		span.SetTag("redis.db", tc.Db)
+		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args))
+		span.SetTag(string(ext.DBInstance), tc.ConnInfo)
+		span.SetTag(string(ext.DBType), "redis")
 		return tc.Conn.Do(cmdName, args...)
 	}
 	span, _ := ot.StartSpanFromContext(args[0].(context.Context), "redis")
 	defer span.Finish()
-	span.SetTag("redis.command", cmdName)
-	span.SetTag("redis.connection", tc.ConnInfo)
-	span.SetTag("redis.db", tc.Db)
+	span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args))
+	span.SetTag(string(ext.DBInstance), tc.ConnInfo)
+	span.SetTag(string(ext.DBType), "redis")
 	return tc.Conn.Do(cmdName, args...)
 }
 
@@ -76,4 +78,12 @@ func ConnectTo(redisURL string) (c redis.Conn, err error) {
 	}
 	c, err = redis.Dial("tcp", URL.Host, dialOpts...)
 	return &TracedConn{Conn: c, Db: db, ConnInfo: URL.Host}, err
+}
+
+func databaseStatement(cmd string, args ...interface{}) string {
+	stmt := cmd
+	for _, a := range args {
+		stmt += fmt.Sprintf("%v", a)
+	}
+	return stmt
 }
