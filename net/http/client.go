@@ -22,7 +22,7 @@ type TracedTransport struct {
 }
 
 // RoundTrip satisfies the RoundTripper interface, wraps the sub Transport and
-// captures a span of the Elasticsearch request.
+// captures a span of the HTTP request.
 func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	span, ctx := ot.StartSpanFromContext(r.Context(), "http.request")
 	r = r.WithContext(ctx)
@@ -57,7 +57,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	return resp, err
 }
 
-// NewTracedHTTPClient returns a new http.Client with a custom transport dedicated to use with github.com/olivere/elastic
+// NewTracedHTTPClient returns a new traced http.Client
 func NewTracedHTTPClient() *http.Client {
 	return &http.Client{
 		Transport: &TracedTransport{&http.Transport{}},
