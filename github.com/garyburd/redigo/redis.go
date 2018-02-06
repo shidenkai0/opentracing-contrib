@@ -2,7 +2,6 @@ package otredigo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -29,22 +28,22 @@ func (tc *TracedConn) Err() error {
 
 func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}, err error) {
 	if len(args) == 0 {
-		return nil, errors.New("otredigo: called redis.Conn.Do with no arguments")
+		return tc.Conn.Do(cmdName, args...)
 	}
-	if _, ok := args[0].(context.Context); !ok {
+	if _, ok := args[len(args)-1].(context.Context); !ok {
 		span := ot.StartSpan("redis")
 		defer span.Finish()
 		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args))
 		span.SetTag(string(ext.DBInstance), tc.ConnInfo)
 		span.SetTag(string(ext.DBType), "redis")
-		return tc.Conn.Do(cmdName, args...)
+		return tc.Conn.Do(cmdName, args[:len(args)-1]...)
 	}
-	span, _ := ot.StartSpanFromContext(args[0].(context.Context), "redis")
+	span, _ := ot.StartSpanFromContext(args[len(args)-1].(context.Context), "redis")
 	defer span.Finish()
 	span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args))
 	span.SetTag(string(ext.DBInstance), tc.ConnInfo)
 	span.SetTag(string(ext.DBType), "redis")
-	return tc.Conn.Do(cmdName, args...)
+	return tc.Conn.Do(cmdName, args[:len(args)-1]...)
 }
 
 func (tc *TracedConn) Send(cmdName string, args ...interface{}) error {
@@ -83,7 +82,7 @@ func ConnectTo(redisURL string) (c redis.Conn, err error) {
 func databaseStatement(cmd string, args ...interface{}) string {
 	stmt := cmd
 	for _, a := range args {
-		stmt += fmt.Sprintf("%v", a)
+		stmt += fmt.Sprintf(" %v", a)
 	}
 	return stmt
 }
