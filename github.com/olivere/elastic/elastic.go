@@ -29,6 +29,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	defer span.Finish()
 
 	span.SetTag(string(ext.DBType), "elastic")
+	span.SetTag(string(ext.DBInstance), r.URL.Host)
 	span.SetTag("elastic.method", r.Method)
 	span.SetTag("elastic.url", r.URL.Path)
 	span.SetTag("elastic.params", r.URL.Query().Encode())
