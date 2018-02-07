@@ -34,14 +34,14 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 	if _, ok := args[len(args)-1].(context.Context); !ok {
 		span := ot.StartSpan("redis")
 		defer span.Finish()
-		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]))
+		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]...))
 		span.SetTag(string(ext.DBInstance), tc.ConnInfo)
 		span.SetTag(string(ext.DBType), "redis")
 		return tc.Conn.Do(cmdName, args[:len(args)-1]...)
 	}
 	span, _ := ot.StartSpanFromContext(args[len(args)-1].(context.Context), "redis")
 	defer span.Finish()
-	span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]))
+	span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]...))
 	span.SetTag(string(ext.DBInstance), tc.ConnInfo)
 	span.SetTag(string(ext.DBType), "redis")
 	return tc.Conn.Do(cmdName, args[:len(args)-1]...)
