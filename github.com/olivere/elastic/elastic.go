@@ -23,12 +23,18 @@ type TracedTransport struct {
 
 // RoundTrip satisfies the RoundTripper interface, wraps the sub Transport and
 // captures a span of the Elasticsearch request.
-func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
 	span, ctx := ot.StartSpanFromContext(r.Context(), "elastic.query")
 	r = r.WithContext(ctx)
-	defer span.Finish()
+	defer func() {
+		if err != nil {
+			span.SetTag("elastic.error", err.Error())
+			span.SetTag(string(ext.Error), true)
+		}
+		span.Finish()
+	}()
 
-	span.SetTag(string(ext.DBType), "elastic")
+	span.SetTag(string(ext.DBType), "elasticsearch")
 	span.SetTag(string(ext.DBInstance), r.URL.Host)
 	span.SetTag("elastic.method", r.Method)
 	span.SetTag("elastic.url", r.URL.Path)
@@ -44,18 +50,13 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 	}
 
-	err := ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
+	err = ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
 	if err != nil {
-		span.SetTag("error", true)
 		return nil, err
 	}
 
 	// execute standard roundtrip
-	resp, err := t.Transport.RoundTrip(r)
-	if err != nil {
-		span.SetTag("elastic.error", err.Error())
-		span.SetTag("error", true)
-	}
+	resp, err = t.Transport.RoundTrip(r)
 	span.SetTag("elastic.status_code", resp.StatusCode)
 	return resp, err
 }

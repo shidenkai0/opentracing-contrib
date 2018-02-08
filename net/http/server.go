@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/negroni"
 )
 
+// ServerMiddleware wraps a given http.Handler with OpenTracing instrumentation
 func ServerMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// extract SpanContext from http headers carrier
@@ -31,6 +32,9 @@ func setHTTPTags(span ot.Span, r *http.Request, w http.ResponseWriter) {
 	span.SetTag(string(ext.PeerHostname), r.Host)
 	rw := w.(negroni.ResponseWriter)
 	span.SetTag(string(ext.HTTPStatusCode), rw.Status())
+	if rw.Status()/100 == 5 { // 5xx status codes treated as errors
+		span.SetTag(string(ext.Error), true)
+	}
 	span.SetTag("http.response_body.size", rw.Size())
 }
 

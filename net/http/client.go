@@ -23,10 +23,16 @@ type TracedTransport struct {
 
 // RoundTrip satisfies the RoundTripper interface, wraps the sub Transport and
 // captures a span of the HTTP request.
-func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
 	span, ctx := ot.StartSpanFromContext(r.Context(), "http.request")
 	r = r.WithContext(ctx)
-	defer span.Finish()
+	defer func() {
+		if err != nil {
+			span.SetTag("http.error", err.Error())
+			span.SetTag(string(ext.Error), true)
+		}
+		span.Finish()
+	}()
 
 	span.SetTag(string(ext.HTTPMethod), r.Method)
 	span.SetTag(string(ext.HTTPUrl), r.URL.String())
@@ -41,18 +47,13 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 		r.Body = ioutil.NopCloser(bytes.NewBuffer(buf))
 	}
 
-	err := ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
+	err = ot.GlobalTracer().Inject(span.Context(), ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
 	if err != nil {
-		span.SetTag("error", true)
 		return nil, err
 	}
 
 	// execute standard roundtrip
-	resp, err := t.Transport.RoundTrip(r)
-	if err != nil {
-		span.SetTag("http.error", err.Error())
-		span.SetTag(string(ext.Error), true)
-	}
+	resp, err = t.Transport.RoundTrip(r)
 	span.SetTag(string(ext.HTTPStatusCode), resp.StatusCode)
 	return resp, err
 }
