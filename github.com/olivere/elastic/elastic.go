@@ -57,6 +57,10 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err e
 
 	// execute standard roundtrip
 	resp, err = t.Transport.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+
 	span.SetTag("elastic.status_code", resp.StatusCode)
 	return resp, err
 }
