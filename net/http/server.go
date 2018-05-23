@@ -3,7 +3,6 @@ package othttp
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -40,11 +39,5 @@ func setHTTPTags(span ot.Span, r *http.Request, w http.ResponseWriter) {
 }
 
 func getOperationName(method, path string) string {
-	spath := strings.Split(path, "/")
-	if len(spath) <= 1 {
-		path = "/"
-	} else {
-		path = "/" + spath[1]
-	}
 	return fmt.Sprintf("%s %s", method, path)
 }

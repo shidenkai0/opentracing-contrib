@@ -16,7 +16,7 @@ type TracedTransport struct {
 // RoundTrip satisfies the RoundTripper interface, wraps the sub Transport and
 // captures a span of the HTTP request.
 func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
-	span, ctx := ot.StartSpanFromContext(r.Context(), "http.request")
+	span, ctx := ot.StartSpanFromContext(r.Context(), getOperationName(r.Method, r.URL.Path))
 	r = r.WithContext(ctx)
 	defer func() {
 		if err != nil {
