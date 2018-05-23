@@ -35,6 +35,7 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 	defer func() {
 		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]...))
 		span.SetTag(string(ext.DBInstance), tc.ConnInfo)
+		span.SetTag(string(ext.Component), "redigo")
 		span.SetTag(string(ext.DBType), "redis")
 		if err != nil {
 			span.SetTag(string(ext.Error), true)

@@ -25,7 +25,7 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err e
 		}
 		span.Finish()
 	}()
-
+	span.SetTag(string(ext.Component), "net/http")
 	span.SetTag(string(ext.HTTPMethod), r.Method)
 	span.SetTag(string(ext.HTTPUrl), r.URL.String())
 	ext.SpanKindRPCClient.Set(span) // mark this span as a remote client call

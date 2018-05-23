@@ -26,6 +26,7 @@ func ServerMiddleware(h http.Handler) http.Handler {
 }
 
 func setHTTPTags(span ot.Span, r *http.Request, w http.ResponseWriter) {
+	span.SetTag(string(ext.Component), "net/http")
 	span.SetTag(string(ext.SpanKind), string(ext.SpanKindRPCServerEnum))
 	span.SetTag(string(ext.HTTPMethod), r.Method)
 	span.SetTag(string(ext.HTTPUrl), r.URL.Path)
