@@ -21,10 +21,12 @@ type TracedTransport struct {
 	*http.Transport
 }
 
+var elasticComponent = ot.Tag{string(ext.Component), "elastic"}
+
 // RoundTrip satisfies the RoundTripper interface, wraps the sub Transport and
 // captures a span of the Elasticsearch request.
 func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err error) {
-	span, ctx := ot.StartSpanFromContext(r.Context(), "elastic.query")
+	span, ctx := ot.StartSpanFromContext(r.Context(), "elastic.query", elasticComponent)
 	r = r.WithContext(ctx)
 	defer func() {
 		if err != nil {
@@ -34,7 +36,6 @@ func (t *TracedTransport) RoundTrip(r *http.Request) (resp *http.Response, err e
 		span.Finish()
 	}()
 
-	span.SetTag(string(ext.Component), "elastic")
 	span.SetTag(string(ext.DBType), "elasticsearch")
 	span.SetTag(string(ext.DBInstance), r.URL.Host)
 	span.SetTag("elastic.method", r.Method)

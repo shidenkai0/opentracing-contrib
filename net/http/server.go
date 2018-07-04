@@ -3,7 +3,6 @@ package othttp
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	ot "github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
@@ -15,7 +14,7 @@ func ServerMiddleware(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// extract SpanContext from http headers carrier
 		sc, _ := ot.GlobalTracer().Extract(ot.HTTPHeaders, ot.HTTPHeadersCarrier(r.Header))
-		span := ot.StartSpan(getOperationName(r.Method, r.URL.Path), ext.RPCServerOption(sc))
+		span := ot.StartSpan(getOperationName(r.Method, r.URL.Path), ext.RPCServerOption(sc), httpComponent)
 		defer span.Finish()
 		ctx := ot.ContextWithSpan(r.Context(), span)
 		// Use negroni.Responsewriter, providing facilities for getting response information
@@ -26,7 +25,6 @@ func ServerMiddleware(h http.Handler) http.Handler {
 }
 
 func setHTTPTags(span ot.Span, r *http.Request, w http.ResponseWriter) {
-	span.SetTag(string(ext.Component), "net/http")
 	span.SetTag(string(ext.SpanKind), string(ext.SpanKindRPCServerEnum))
 	span.SetTag(string(ext.HTTPMethod), r.Method)
 	span.SetTag(string(ext.HTTPUrl), r.URL.Path)
@@ -40,11 +38,5 @@ func setHTTPTags(span ot.Span, r *http.Request, w http.ResponseWriter) {
 }
 
 func getOperationName(method, path string) string {
-	spath := strings.Split(path, "/")
-	if len(spath) <= 1 {
-		path = "/"
-	} else {
-		path = "/" + spath[1]
-	}
 	return fmt.Sprintf("%s %s", method, path)
 }

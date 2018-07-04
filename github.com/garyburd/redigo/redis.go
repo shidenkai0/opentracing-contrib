@@ -13,9 +13,11 @@ import (
 
 // TracedConn is a traced implementation of github.com/garyburd/redigo/redis.Conn
 type TracedConn struct {
-	ConnInfo string // host:port
-	Db       int    // redis db identifier
-	Conn     redis.Conn
+	ConnInfo         string // host:port
+	Db               int    // redis db identifier
+	Conn             redis.Conn
+	span             ot.Span
+	pipelineCommands []string
 }
 
 func (tc *TracedConn) Close() error {
@@ -26,16 +28,17 @@ func (tc *TracedConn) Err() error {
 	return tc.Conn.Err()
 }
 
+var redigoComponent = ot.Tag{string(ext.Component), "redigo"}
+
 func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}, err error) {
 	if len(args) == 0 {
 		return tc.Conn.Do(cmdName, args...)
 	}
 
-	var span ot.Span
+	span, args := spanAndArgs(cmdName, args)
 	defer func() {
 		span.SetTag(string(ext.DBStatement), databaseStatement(cmdName, args[:len(args)-1]...))
 		span.SetTag(string(ext.DBInstance), tc.ConnInfo)
-		span.SetTag(string(ext.Component), "redigo")
 		span.SetTag(string(ext.DBType), "redis")
 		if err != nil {
 			span.SetTag(string(ext.Error), true)
@@ -43,20 +46,29 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 		}
 		span.Finish()
 	}()
+	return tc.Conn.Do(cmdName, args)
+}
 
+func spanAndArgs(cmdName string, args ...interface{}) (ot.Span, []interface{}) {
+	var span ot.Span
 	if _, ok := args[len(args)-1].(context.Context); !ok {
-		span = ot.StartSpan("redis")
-		return tc.Conn.Do(cmdName, args[:len(args)-1]...)
+		span = ot.StartSpan("redis", redigoComponent)
+		return span, args
 	}
-	span, _ = ot.StartSpanFromContext(args[len(args)-1].(context.Context), "redis")
-	return tc.Conn.Do(cmdName, args[:len(args)-1]...)
+	span, _ = ot.StartSpanFromContext(args[len(args)-1].(context.Context), cmdName, redigoComponent)
+	return span, args[:len(args)-1]
 }
 
 func (tc *TracedConn) Send(cmdName string, args ...interface{}) error {
+	if tc.span == nil {
+		tc.span, args = spanAndArgs(cmdName, args)
+		return tc.Conn.Send(cmdName, args...)
+	}
 	return tc.Conn.Send(cmdName, args...)
 }
 
 func (tc *TracedConn) Flush() error {
+	tc.span.Finish()
 	return tc.Conn.Flush()
 }
 
