@@ -68,7 +68,9 @@ func (tc *TracedConn) Send(cmdName string, args ...interface{}) error {
 }
 
 func (tc *TracedConn) Flush() error {
-	tc.span.Finish()
+	if tc.span != nil {
+		tc.span.Finish()
+	}
 	return tc.Conn.Flush()
 }
 
