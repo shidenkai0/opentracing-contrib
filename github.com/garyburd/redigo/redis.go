@@ -71,6 +71,7 @@ func (tc *TracedConn) Flush() error {
 	if tc.span != nil {
 		tc.span.Finish()
 	}
+	tc.span = nil
 	return tc.Conn.Flush()
 }
 
