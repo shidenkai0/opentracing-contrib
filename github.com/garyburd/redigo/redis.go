@@ -46,10 +46,10 @@ func (tc *TracedConn) Do(cmdName string, args ...interface{}) (reply interface{}
 		}
 		span.Finish()
 	}()
-	return tc.Conn.Do(cmdName, args)
+	return tc.Conn.Do(cmdName, args...)
 }
 
-func spanAndArgs(cmdName string, args ...interface{}) (ot.Span, []interface{}) {
+func spanAndArgs(cmdName string, args []interface{}) (ot.Span, []interface{}) {
 	var span ot.Span
 	if _, ok := args[len(args)-1].(context.Context); !ok {
 		span = ot.StartSpan("redis", redigoComponent)
